@@ -1,0 +1,50 @@
+name: Issue Completeness
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  copilot-requests: write
+  issues: write
+
+jobs:
+  analyze:
+    name: AI Issue Completeness
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+
+      - name: Install Copilot CLI
+        run: npm install --global @github/copilot@1.0.85
+
+      - name: Analyze issue with AI
+        id: ai-response
+        uses: actions/ai-inference@a7805884c80886efc241e94a5351df715968a0ad # v2.1.1
+        with:
+          provider: copilot
+          system-prompt: |
+            You are a GitHub issue assistant. Analyze newly opened issues for completeness.
+            Provide concise, helpful suggestions, ask clarifying questions, and identify missing information that would help resolve the issue faster.
+            Return ready-to-use Markdown without code fences, and sign off as AI assistant.
+          prompt: |
+            New issue was opened by ${{ github.event.issue.user.login }}
+            Title: ${{ github.event.issue.title }}
+            Body:
+            ---
+            ${{ github.event.issue.body }}
+            ---
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Comment results on the issue
+        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+        with:
+          token: ${{ github.token }}
+          issue-number: ${{ github.event.issue.number }}
+          body-path: ${{ steps.ai-response.outputs.response-file }}
